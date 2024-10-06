@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vegetable Price Prediction</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1, h2 { color: #333; }
+        form { margin-bottom: 20px; }
+        label, input, select { margin: 5px 0; }
+        #specificPredictionInputs { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Vegetable Price Prediction</h1>
+    
+    <h2>Predict All Vegetable Prices</h2>
+    <form id="allVegetablesForm">
+        <label for="allMonth">Select Month:</label>
+        <select id="allMonth" name="month" required>
+            <option value="1">January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6">June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+        </select>
+        <button type="submit">Predict All</button>
+    </form>
+    <canvas id="allVegetablesChart"></canvas>
+
+    <h2>Predict Specific Vegetable Price</h2>
+    <form id="specificVegetableForm">
+        <label for="specificMonth">Select Month:</label>
+        <select id="specificMonth" name="month" required>
+            <option value="1">January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6">June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+        </select>
+        <label for="targetVegetable">Select Vegetable:</label>
+        <select id="targetVegetable" name="target_vegetable" required>
+            <option value="Bhindi (Ladies finger)">Bhindi (Ladies finger)</option>
+            <option value="Tomato">Tomato</option>
+            <option value="Onion">Onion</option>
+            <option value="Potato">Potato</option>
+            <option value="Brinjal">Brinjal</option>
+            <option value="Garlic">Garlic</option>
+            <option value="Peas">Peas</option>
+        </select>
+        <div id="specificPredictionInputs"></div>
+        <button type="submit">Predict Specific</button>
+    </form>
+    <canvas id="specificVegetableChart"></canvas>
+
+    <script>
+        const vegetables = ['Bhindi (Ladies finger)', 'Tomato', 'Onion', 'Potato', 'Brinjal', 'Garlic', 'Peas'];
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#5C7BD9'];
+
+        document.getElementById('allVegetablesForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const response = await fetch('/predict_all', { method: 'POST', body: formData });
+            const data = await response.json();
+            
+            const ctx = document.getElementById('allVegetablesChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 12}, (_, i) => i + 1),
+                    datasets: vegetables.map((veg, index) => ({
+                        label: veg,
+                        data: Object.values(data.all_months_predictions).map(month => month[veg]),
+                        borderColor: colors[index],
+                        fill: false
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    title: { display: true, text: 'Predicted Vegetable Prices Across Months' },
+                    scales: {
+                        x: { title: { display: true, text: 'Month' } },
+                        y: { title: { display: true, text: 'Price' } }
+                    }
+                }
+            });
+        });
+
+        document.getElementById('targetVegetable').addEventListener('change', (e) => {
+            const targetVegetable = e.target.value;
+            const inputsContainer = document.getElementById('specificPredictionInputs');
+            inputsContainer.innerHTML = '';
+            vegetables.forEach(veg => {
+                if (veg !== targetVegetable) {
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.name = veg;
+                    input.placeholder = `${veg} price`;
+                    input.step = '0.01';
+                    inputsContainer.appendChild(input);
+                }
+            });
+            inputsContainer.style.display = 'block';
+        });
+
+        document.getElementById('specificVegetableForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+                month: formData.get('month'),
+                target_vegetable: formData.get('target_vegetable'),
+                other_prices: {}
+            };
+            vegetables.forEach(veg => {
+                if (veg !== data.target_vegetable) {
+                    data.other_prices[veg] = formData.get(veg) || 0;
+                }
+            });
+            
+            const response = await fetch('/predict_specific', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            
+            const ctx = document.getElementById('specificVegetableChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Array.from({length: 12}, (_, i) => i + 1),
+                    datasets: [{
+                        label: data.target_vegetable,
+                        data: Object.values(result.all_months_predictions),
+                        backgroundColor: colors[0]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    title: { display: true, text: `Predicted ${data.target_vegetable} Prices Across Months` },
+                    scales: {
+                        x: { title: { display: true, text: 'Month' } },
+                        y: { title: { display: true, text: 'Price' } }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
