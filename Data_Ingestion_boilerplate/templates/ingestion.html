@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload and Process File</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { width: 50%; margin: auto; padding: 50px; }
+        input[type="submit"] { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; }
+        input[type="file"] { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Upload a CSV File for Data Processing</h1>
+        <h2>What to Expect</h2>
+        <h4>When you load this webpage, you’ll be able to upload a dataset to begin the ingestion and ELT process. Once you submit a dataset, our platform will automatically:</h4> 
+        <h5>1. Ingest and store your data.</h5>
+        <h5>2. Clean and transform it by filling missing values, standardizing columns, and removing duplicates.</h5>
+        <h5>3. Prepare a downloadable cleaned dataset ready for further analysis or visualization.</h5>
+            
+        <h5>This process streamlines your data preparation tasks, making it easy to work with clean, consistent data.</h5>
+        <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+            <label for="file">Upload CSV file:</label>
+            <input type="file" name="file" id="file" accept=".csv" required>
+            <br><br>
+            <input type="submit" value="Submit">
+        </form>
+    </div>
+</body>
+</html>

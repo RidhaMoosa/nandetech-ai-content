@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Prediction</title>
+</head>
+<body>
+    <h1>Predict Student Scores</h1>
+    <form action="/" method="POST">
+        <label for="parental_education">Parental Education:</label>
+        <select name="parental_education" id="parental_education">
+            <option value="some college">Some College</option>
+            <option value="associate's degree">Associate's Degree</option>
+            <!-- Add more options as needed -->
+        </select><br><br>
+
+        <label for="lunch">Lunch Type:</label>
+        <select name="lunch" id="lunch">
+            <option value="standard">Standard</option>
+            <option value="free/reduced">Free/Reduced</option>
+        </select><br><br>
+
+        <label for="test_preparation">Test Preparation Course:</label>
+        <select name="test_preparation" id="test_preparation">
+            <option value="completed">Completed</option>
+            <option value="none">None</option>
+        </select><br><br>
+
+        <label for="score_type">Score to Predict:</label>
+        <select name="score_type" id="score_type">
+            <option value="math">Math</option>
+            <option value="reading">Reading</option>
+            <option value="writing">Writing</option>
+        </select><br><br>
+
+        <input type="submit" value="Predict">
+    </form>
+</body>
+</html>
