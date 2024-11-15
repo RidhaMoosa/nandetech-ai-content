@@ -1,0 +1,32 @@
+{
+    "other": 17,
+    "Turtion_fees": 32,
+    "Government_grants": 51,
+
+    "high_education_inflation":[
+        {
+            "tertiary": 8.9,
+            "date": 2013
+        },
+        {
+           "tertiary": 9.3,
+            "date": 2014 
+        },
+        {
+            "tertiary": 9.9,
+            "date": 2015
+        }
+    ],
+    "headline_tertiary":[
+        {
+            "headline": 5.7
+        },
+        {
+            "headline": 6.1
+        },
+        {
+            "headline": 4.6
+        }
+]
+    
+}
