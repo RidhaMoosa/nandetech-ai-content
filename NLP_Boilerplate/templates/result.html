@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Classification Result</title>
+</head>
+<body>
+    <div class="container">
+        <h1>Classification Result</h1>
+        <p><strong>Email:</strong> {{ email }}</p>
+        <p><strong>Model Used:</strong> {{ model }}</p>
+        <p><strong>Prediction:</strong> {{ result }}</p>
+        <a href="/">Classify Another Email</a>
+    </div>
+</body>
+</html>
