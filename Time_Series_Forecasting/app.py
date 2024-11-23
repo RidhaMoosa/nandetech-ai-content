@@ -44,7 +44,7 @@ def forecast():
                     continue
 
                 # Prepare data for Prophet
-                df_prophet = df[['Price Dates', veg]].rename(columns={'Price Dates': 'ds', veg: 'y'}).dropna()
+                df_prophet = df[['Price Dates', veg]].rename(columns={'Price Dates': 'ds', veg: 'y'}).copy()
                 df_prophet = df_prophet[df_prophet['y'] > 0]  # Remove zero or negative values
 
                 # Aggregate data by month (taking the monthly average)
@@ -76,7 +76,7 @@ def forecast():
                     model.add_seasonality(name='yearly', period=365, fourier_order=3)
 
                 # Fit the model
-                model.fit(df_prophet)
+                model.fit(df_prophet, algorithm='Newton')
                 logger.info(f"Model fitted successfully for {veg}")
 
                 # Create future dataframe for 12 months

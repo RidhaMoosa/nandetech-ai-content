@@ -1,5 +1,12 @@
 # React + TypeScript + Vite
 
+# set up to run this application
+  Ensure you have React installed on your system.
+   1 Open a terminal in the application directory.
+      go to 'cd my-barbenheimer-dashboard/src'
+      run ( npm run dev ) on terminal.
+  2 go to http://localhost:5173/
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
