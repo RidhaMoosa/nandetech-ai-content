@@ -7,3 +7,6 @@ This project is a basic web scraper template in Python for collecting data from 
 Install dependencies with:
 ```bash
 pip install -r requirements.txt
+ 
+python main.py (to run this)
+

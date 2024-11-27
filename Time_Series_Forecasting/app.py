@@ -1,113 +1,138 @@
-from flask import Flask, render_template, request, jsonify
+import os
 import pandas as pd
-from prophet import Prophet
 import numpy as np
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import base64
+from io import BytesIO
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+# Load the data
+df = pd.read_csv('prices.csv', parse_dates=['Price Dates'])
+df.set_index('Price Dates', inplace=True)
 
-@app.route("/forecast", methods=["POST"])
+def prepare_lstm_data(data, look_back=7):
+    """Prepare data for LSTM model"""
+    X, y = [], []
+    for i in range(len(data) - look_back):
+        X.append(data[i:i+look_back])
+        y.append(data[i+look_back])
+    return np.array(X), np.array(y)
+
+def forecast_vegetable_prices(vegetable_name, look_back=7, epochs=50, test_size=0.2):
+    """Forecast prices for a specific vegetable using LSTM"""
+    # Extract vegetable price series
+    prices = df[vegetable_name]
+    
+    # Normalize the data
+    scaler = MinMaxScaler()
+    scaled_prices = scaler.fit_transform(prices.values.reshape(-1, 1)).flatten()
+    
+    # Prepare data
+    X, y = prepare_lstm_data(scaled_prices, look_back)
+    
+    # Reshape input for LSTM [samples, time steps, features]
+    X = X.reshape((X.shape[0], X.shape[1], 1))
+    
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, shuffle=False)
+    
+    # Build LSTM model
+    model = Sequential([
+        LSTM(50, activation='relu', input_shape=(look_back, 1)),
+        Dense(1)
+    ])
+    model.compile(optimizer='adam', loss='mse')
+    
+    # Train model
+    model.fit(X_train, y_train, epochs=epochs, verbose=0)
+    
+    # Predict
+    train_pred = model.predict(X_train).flatten()
+    test_pred = model.predict(X_test).flatten()
+    
+    # Inverse transform predictions
+    train_pred = scaler.inverse_transform(train_pred.reshape(-1, 1)).flatten()
+    test_pred = scaler.inverse_transform(test_pred.reshape(-1, 1)).flatten()
+    y_train_orig = scaler.inverse_transform(y_train.reshape(-1, 1)).flatten()
+    y_test_orig = scaler.inverse_transform(y_test.reshape(-1, 1)).flatten()
+    
+    # Calculate metrics
+    train_mse = mean_squared_error(y_train_orig, train_pred)
+    test_mse = mean_squared_error(y_test_orig, test_pred)
+    train_mae = mean_absolute_error(y_train_orig, train_pred)
+    test_mae = mean_absolute_error(y_test_orig, test_pred)
+    
+    # Forecast next 7 days
+    last_sequence = scaled_prices[-look_back:]
+    forecast_sequence = last_sequence.reshape((1, look_back, 1))
+    future_predictions = []
+    
+    for _ in range(7):
+        next_pred = model.predict(forecast_sequence)
+        future_predictions.append(next_pred[0, 0])
+        forecast_sequence = np.roll(forecast_sequence, -1)
+        forecast_sequence[0, -1, 0] = next_pred[0, 0]
+    
+    future_predictions = scaler.inverse_transform(np.array(future_predictions).reshape(-1, 1)).flatten()
+    
+    # Visualization
+    plt.figure(figsize=(12, 6))
+    plt.plot(df.index[-len(y_test_orig):], y_test_orig, label='Actual Prices', color='blue')
+    plt.plot(df.index[-len(y_test_orig):], test_pred, label='Predicted Prices', color='red', linestyle='--')
+    plt.title(f'{vegetable_name} Price Forecast')
+    plt.xlabel('Date')
+    plt.ylabel('Price')
+    plt.legend()
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    
+    # Save plot to base64 for web display
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png')
+    buffer.seek(0)
+    plot_data = base64.b64encode(buffer.getvalue()).decode()
+    plt.close()
+    
+    return {
+        'vegetable': vegetable_name,
+        'train_mse': train_mse,
+        'test_mse': test_mse,
+        'train_mae': train_mae,
+        'test_mae': test_mae,
+        'future_forecast': future_predictions.tolist(),
+        'plot_data': plot_data
+    }
+
+@app.route('/')
+def index():
+    # List of vegetables to forecast
+    vegetables = ['Bhindi (Ladies finger)', 'Tomato', 'Onion', 'Potato', 'Brinjal', 
+                  'Garlic', 'Peas', 'Methi', 'Green Chilli']
+    return render_template('index.html', vegetables=vegetables)
+
+@app.route('/forecast', methods=['POST'])
 def forecast():
+    vegetable = request.form.get('vegetable')
+    
     try:
-        # Load and preprocess data
-        df = pd.read_csv("prices.csv")
-        logger.info("Dataset loaded successfully.")
-
-        # Convert dates to datetime and handle missing values
-        df['Price Dates'] = pd.to_datetime(df['Price Dates'], format='%d-%m-%Y', errors='coerce')
-        df = df.dropna(subset=['Price Dates'])
-        df = df.ffill()  # Forward-fill missing values
-        logger.info("Dates converted and missing values handled.")
-
-        # List of vegetables
-        vegetables = [
-            'Bhindi (Ladies finger)', 'Tomato','Onion', 'Potato', 'Brinjal',
-            'Garlic', 'Peas', 'Methi', 'Green Chilli', 'Elephant Yam (Suran)'
-        ]
-
-        all_forecasts = {}
-
-        for veg in vegetables:
-            try:
-                logger.info(f"Processing {veg}")
-                # Check if vegetable exists in columns
-                if veg not in df.columns:
-                    logger.warning(f"Column '{veg}' not found.")
-                    continue
-
-                # Prepare data for Prophet
-                df_prophet = df[['Price Dates', veg]].rename(columns={'Price Dates': 'ds', veg: 'y'}).copy()
-                df_prophet = df_prophet[df_prophet['y'] > 0]  # Remove zero or negative values
-
-                # Aggregate data by month (taking the monthly average)
-                df_prophet.set_index('ds', inplace=True)
-                df_prophet = df_prophet.resample('ME').mean().reset_index()
-
-                # Ensure sufficient data points and variability
-                if len(df_prophet) < 12 or df_prophet['y'].std() < 1e-4:
-                    logger.warning(f"Insufficient or constant data for {veg}. Skipping.")
-                    continue
-
-                # Handle outliers using IQR method
-                Q1, Q3 = df_prophet['y'].quantile([0.25, 0.75])
-                IQR = Q3 - Q1
-                lower_bound = Q1 - 2.0 * IQR
-                upper_bound = Q3 + 2.0 * IQR
-                df_prophet['y'] = df_prophet['y'].clip(lower_bound, upper_bound)
-
-                # Scale the data using robust scaling
-                median = df_prophet['y'].median()
-                mad = np.median(np.abs(df_prophet['y'] - median))
-                df_prophet['y'] = (df_prophet['y'] - median) / (mad if mad else 1)
-                
-                logger.info(f"Data prepared for {veg}. Shape: {df_prophet.shape}")
-
-                # Initialize Prophet with yearly seasonality
-                model = Prophet(yearly_seasonality=True)
-                if len(df_prophet) >= 24:  # At least 2 years of data
-                    model.add_seasonality(name='yearly', period=365, fourier_order=3)
-
-                # Fit the model
-                model.fit(df_prophet, algorithm='Newton')
-                logger.info(f"Model fitted successfully for {veg}")
-
-                # Create future dataframe for 12 months
-                future = model.make_future_dataframe(periods=12, freq='ME')
-                forecast = model.predict(future)
-
-                # Scale predictions back to original range
-                forecast['yhat'] = (forecast['yhat'] * mad) + median
-                forecast['yhat_lower'] = (forecast['yhat_lower'] * mad) + median
-                forecast['yhat_upper'] = (forecast['yhat_upper'] * mad) + median
-
-                # Ensure no negative predictions
-                forecast[['yhat', 'yhat_lower', 'yhat_upper']] = forecast[['yhat', 'yhat_lower', 'yhat_upper']].clip(lower=0).round(2)
-
-                # Store forecasts
-                all_forecasts[veg] = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(12).to_dict(orient="records")
-                logger.info(f"Forecast generated successfully for {veg}")
-
-            except Exception as e:
-                logger.error(f"Error processing {veg}: {str(e)}")
-                continue
-
-        # Check if any forecasts were generated
-        if not all_forecasts:
-            return jsonify({"error": "No forecasts could be generated. Please check the data."})
-
-        return jsonify({"forecasts": all_forecasts})
-
+        # Run forecast for selected vegetable
+        forecast_result = forecast_vegetable_prices(vegetable)
+        
+        return render_template('forecast_result.html', 
+                               forecast=forecast_result,
+                               vegetable=vegetable)
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {str(e)}")
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"})
+        return jsonify({'error': str(e)}), 500
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
+
+# Create templates directory if it doesn't exist
+os.makedirs('templates', exist_ok=True)

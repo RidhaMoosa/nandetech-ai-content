@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ vegetable }} Price Forecast</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f4f6f9;
+            padding-top: 50px;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .forecast-plot {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">{{ vegetable }} Price Forecast</h1>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h3>Forecast Metrics</h3>
+                <table class="table table-striped">
+                    <tr>
+                        <th>Train Mean Squared Error</th>
+                        <td>{{ "%.2f"|format(forecast.train_mse) }}</td>
+                    </tr>
+                    <tr>
+                        <th>Test Mean Squared Error</th>
+                        <td>{{ "%.2f"|format(forecast.test_mse) }}</td>
+                    </tr>
+                    <tr>
+                        <th>Train Mean Absolute Error</th>
+                        <td>{{ "%.2f"|format(forecast.train_mae) }}</td>
+                    </tr>
+                    <tr>
+                        <th>Test Mean Absolute Error</th>
+                        <td>{{ "%.2f"|format(forecast.test_mae) }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h3>Next 7 Days Price Forecast</h3>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Day</th>
+                            <th>Predicted Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for price in forecast.future_forecast %}
+                        <tr>
+                            <td>Day {{ loop.index }}</td>
+                            <td>{{ "%.2f"|format(price) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <h3>Price Forecast Visualization</h3>
+                <img src="data:image/png;base64,{{ forecast.plot_data }}" 
+                     alt="{{ vegetable }} Price Forecast" 
+                     class="img-fluid forecast-plot">
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="/" class="btn btn-secondary">Back to Vegetable Selection</a>
+        </div>
+    </div>
+</body>
+</html>
